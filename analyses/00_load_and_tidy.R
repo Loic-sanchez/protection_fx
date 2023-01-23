@@ -6,8 +6,6 @@
 #
 ################################################################################
 
-devtools::load_all()
-
 library(tidyverse)
 source(here::here("R", "load_data.R"))
 source(here::here("R", "tidy_data.R"))
@@ -17,159 +15,98 @@ load_rdata()
 covariates_corrected = tidy_sites()
 
 ssmatrix = make_ssmatrix(30)
+ssmatrix_ab = make_ssmatrix_ab(30)
 
 all_PC = make_PCA()
 
 melted = melt_and_merge()
+melted_ab = melt_and_merge_ab()
 
 melted = recode_protection()
+melted_ab = recode_protection_ab()
 
-melted_filt = rid_rare_outside()
+melted_filt = rid_rare_outside() #also saves "melted_filt.RData", in data/data
+melted_filt_ab = rid_rare_outside_ab() #also saves "melted_filt_ab.RData"
 
 ##################################
 
-#all species targeted in the family:
+#### Plot crastination ####
 
-all_sp <- c("Acanthuridae", "Caesionidae", "Carangidae", "Ephippidae", "Haemulidae", "Kyphosidae",
-            "Labridae", "Lethrinidae", "Lutjanidae", "Mullidae", "Nemipteridae", "Scaridae",
-            "Scombridae", "Serranidae", "Siganidae", "Sparidae", "Sphyraenidae")
+### Plots richness ###
 
-#families with species targeted if larger than 20cm:
+melted_filt_traits$Trophic.group2 = as.factor(melted_filt_traits$Trophic.group2)
+melted_filt_traits$SurveyID = as.factor(melted_filt_traits$SurveyID)
+mft_higher = melted_filt_traits %>% filter(Trophic.group2 == "Higher carnivore") %>% filter(Presence == 1)
+mft_bentinv = melted_filt_traits %>% filter(Trophic.group2 == "Benthic invertivore") %>% filter(Presence == 1)
+mft_herb = melted_filt_traits %>% filter(Trophic.group2 == "Herbivore") %>% filter(Presence == 1)
+mft_plank = melted_filt_traits %>% filter(Trophic.group2 == "Planktivore") %>% filter(Presence == 1)
 
-target_larger_20cm <- c("Balistidae", "Holocentridae", "Pomacanthidae", "Priacanthidae")
-traits = traits %>%
-  mutate(target = ifelse(Family %in% all_sp | (Family %in% target_larger_20cm & MaxLength > 19.9), "Targeted", "Not Targeted"))
-traits$target[is.na(traits$target)] = "Not Targeted"
-traits$Species = traits$CURRENT_SPECIES_NAME
-traits$target = as.factor(traits$target)
+richness_higher = mft_higher %>% group_by(SurveyID) %>% summarise(richness_high = length(unique(Species)))
+richness_bent = mft_bentinv %>% group_by(SurveyID) %>% summarise(richness_bent = length(unique(Species)))
+richness_herb = mft_herb %>% group_by(SurveyID) %>% summarise(richness_herb = length(unique(Species)))
+richness_plank = mft_plank %>% group_by(SurveyID) %>% summarise(richness_plank = length(unique(Species)))
 
-occu_traits = OS_occu %>% 
-  filter(estimate_outside > 0.01) %>% 
-  filter(estimate_full > 0.01) %>% 
-  filter(estimate_part > 0.01) %>% 
-  left_join(traits, by = "Species") %>% 
-  mutate(RR_full = estimate_full/estimate_outside) %>% 
-  mutate(RR_part = estimate_part/estimate_outside) %>% 
-  drop_na(RR_full)
+zbl = melted_filt_traits %>% group_by(SurveyID) %>% summarise(Protection = unique(Effectiveness))
 
-abun_traits = df_abun %>% 
-  filter(estimate_outside > 0.01) %>% 
-  filter(estimate_full > 0.01) %>% 
-  filter(estimate_part > 0.01) %>% 
-  left_join(traits, by = "Species") %>% 
-  drop_na(IRR_full)
+rich_zbl = zbl %>% 
+  left_join(richness_higher, by = "SurveyID") %>% 
+  left_join(richness_bent, by = "SurveyID") %>% 
+  left_join(richness_herb, by = "SurveyID") %>% 
+  left_join(richness_plank, by = "SurveyID")
+rich_zbl[is.na(rich_zbl)] = 0
 
-p = ggplot(occu_traits, aes(x = RR_part, y = RR_full, color = AUC, alpha = 0.5)) + 
-  geom_point(show.legend = F) +
+rich_zbl_long = rich_zbl %>% pivot_longer(cols = c("richness_high", 
+                                                   "richness_bent", 
+                                                   "richness_plank", 
+                                                   "richness_herb"))
+
+ggplot(rich_zbl_long, aes(x = Protection, y = value, fill = Protection)) +
+  geom_boxplot() +
+  facet_wrap(~name) +
   theme_bw()
 
-ggExtra::ggMarginal(p, type = "histogram", 
-           fill = "lightblue", 
-           xparams = list(bins = 50), 
-           yparams =list(bins = 50))
+### Plot with trophic levels ###
 
-p = ggplot(abun_traits, aes(x = IRR_part, y = IRR_full, color = RSQ, alpha = 0.5)) + 
-  geom_point(show.legend = F) +
+melted_filt_traits$SurveyID = as.factor(melted_filt_traits$SurveyID)
+mft_high = melted_filt_traits %>% filter(Trophic.Level > 3.5) %>% filter(Presence == 1)
+mft_mid = melted_filt_traits %>% filter(Trophic.Level < 2.5) %>% filter(Presence == 1)
+mft_low = melted_filt_traits %>% filter(Trophic.Level >= 2.5 & Trophic.Level <= 3.5) %>% filter(Presence == 1)
+
+richness_high = mft_high %>% group_by(SurveyID) %>% summarise(richness_high = length(unique(Species)))
+richness_mid = mft_mid %>% group_by(SurveyID) %>% summarise(richness_mid = length(unique(Species)))
+richness_low = mft_low %>% group_by(SurveyID) %>% summarise(richness_low = length(unique(Species)))
+
+zbl = melted_filt_traits %>% group_by(SurveyID) %>% summarise(Protection = unique(Effectiveness))
+
+rich_zbl = zbl %>% 
+  left_join(richness_high, by = "SurveyID") %>% 
+  left_join(richness_mid, by = "SurveyID") %>% 
+  left_join(richness_low, by = "SurveyID") 
+rich_zbl[is.na(rich_zbl)] = 0
+
+rich_zbl_long = rich_zbl %>% pivot_longer(cols = c("richness_high", 
+                                                   "richness_mid", 
+                                                   "richness_low"))
+rich_zbl_long$name = factor(rich_zbl_long$name, levels = c("richness_low", "richness_mid", "richness_high"))
+ggplot(rich_zbl_long, aes(x = Protection, y = value, fill = Protection)) +
+  geom_violin(draw_quantiles = 0.5) +
+  facet_wrap(~name) +
   theme_bw()
 
-ggExtra::ggMarginal(p, type = "histogram", 
-           fill = "lightblue", 
-           xparams = list(bins = 50), 
-           yparams =list(bins = 50))
+### Estimates in/out ###
 
-abunoccu = occu_traits %>% 
-  left_join(abun_traits %>% select(Species, IRR_full, IRR_part), by = "Species")
+occu_traits_long = occu_traits %>% 
+  pivot_longer(cols= c(estimate_full, estimate_outside, estimate_part))
+occu_traits_long$name = factor(occu_traits_long$name, levels = c("estimate_outside", "estimate_part", "estimate_full"))
 
-ggplot(abunoccu, aes(x = RR_full, y = IRR_full)) + 
-  geom_point(colour = "#007FFF", show.legend = F, alpha = 0.5) +
+ggplot(occu_traits_long, aes(x = name, y = value, fill = name)) +
+  geom_violin(draw_quantiles = 0.5) +
+  facet_wrap(~Trophic.group2) +
   theme_bw()
 
-ggplot(abunoccu, aes(x = RR_part, y = IRR_part)) + 
-  geom_point(colour = "#007FFF", show.legend = F) +
+### Raw ratio/trophic level
+
+ggplot(occu_traits_both, aes(x = Trophic.Level, y = RR)) +
+  geom_point() +
+  facet_wrap(~Protection) +
   theme_bw()
-
-occu_traits$Water.column = as.factor(fct_collapse(occu_traits$Water.column, "Pelagic" = c("pelagic non-site attached", "pelagic site attached")))
-occu_traits$Trophic.group2 = as.factor(fct_collapse(occu_traits$Trophic.group2, "Benthic invertivore" = c("Benthic invertivore", "Corallivore")))
-abun_traits$Trophic.group2 = as.factor(fct_collapse(abun_traits$Trophic.group2, "Benthic invertivore" = c("Benthic invertivore", "Corallivore")))
-abun_traits$Water.column = as.factor(fct_collapse(abun_traits$Water.column, "Pelagic" = c("pelagic non-site attached", "pelagic site attached")))
-
-taxonomy = rfishbase::load_taxa()
-rarity$quantiles = as.character(ntile(rarity$mean_occu, 10))
-rarity = rarity %>% 
-  mutate(Rarity = ifelse(quantiles > 2, "Common", "Rare"))
-
-occu_traits = occu_traits %>% 
-  left_join(taxonomy %>% select(Species, Order), by = "Species") %>% 
-  left_join(rarity, by = "Species") %>% 
-  # mutate(extremes = ntile(RR_full, 100)) %>% 
-  # filter(extremes < 100) %>% 
-  drop_na(Order)
-
-mod = lme4::glmer(RR_full ~ poly(Trophic.Level, 2) * Rarity + (1|Order),
-          data = occu_traits,
-          family = Gamma(link = "inverse"))
-
-car::Anova(mod, type = 2, test.statistic = "F")
-anova(mod)
-
-plot(mod)
-hist(residuals(mod), breaks = 50)
-res = DHARMa::simulateResiduals(mod)
-plot(res)
-
-summary(mod)
-
-p = predict(mod, type = "response")
-cor(p, occu_traits$RR_full)^2
-
-abun_traits = abun_traits %>% 
-  left_join(taxonomy %>% select(Species, Order), by = "Species") %>% 
-  left_join(rarity, by = "Species") %>% 
-  # mutate(extremes = ntile(IRR_full, 100)) %>% 
-  # filter(extremes < 100) %>% 
-  drop_na(Order)
-
-mod_abun = lme4::glmer(IRR_full ~ poly(Trophic.Level, 2) * Rarity + (1|Order),
-               data = abun_traits,
-               family = Gamma(link = "inverse"))
-
-par(mfrow = c(1,2))
-plot(mod_abun)
-
-hist(residuals(mod_abun), breaks = 30)
-summary(mod_abun)
-
-p = predict(mod_abun, type = "response")
-zbl = abun_traits$IRR_full[as.numeric(intersect(names(p), rownames(abun_traits)))]
-cor(p, zbl)^2
-
-par(mfrow = c(1,2))
-p_occu = visreg::visreg(mod, 
-               xvar = "Trophic.Level", 
-               type = "conditional", 
-               scale = "response", 
-               by = "Rarity", 
-               overlay = T, 
-               rug = F,
-               gg = T,
-               line = list(lty = 1), 
-               legend = F)
-
-p_abun = visreg::visreg(mod_abun, 
-               xvar = "Trophic.Level", 
-               type = "conditional", 
-               scale = "response", 
-               by = "Rarity", 
-               overlay = T,
-               rug = F,
-               gg = T, 
-               line = list(lty =2), 
-               legend = F)
-
-theme_set(new = theme_bw())
-p_occu + 
-  p_abun$layers +
-  xlab("Trophic level") +
-  ylab("Effect Size of FPAs") +
-  theme(legend.position = "none")
-

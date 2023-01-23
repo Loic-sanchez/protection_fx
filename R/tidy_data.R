@@ -129,3 +129,93 @@ rid_rare_outside = function() { # Get rid of species with 0-4 occurrences in the
   return(melted_filt)
 }
 
+make_ssmatrix_ab = function(n) {
+  
+  fish_nospp <- fish[fish$TAXONOMIC_NAME %in% fish$TAXONOMIC_NAME,] |> 
+    filter(!stringr::str_detect(TAXONOMIC_NAME,"spp.")) |> 
+    filter(!stringr::str_detect(TAXONOMIC_NAME,"sp.")) |> 
+    filter(!stringr::str_detect(TAXONOMIC_NAME,"(cf)")) # Keep only species levels
+  
+  tab <- table(fish_nospp$SPECIES_NAME)
+  tab <- tab[tab>n]
+  fish_filt  <- fish_nospp[fish_nospp$SPECIES_NAME %in% names(tab),]
+  fish_filt$SPECIES_NAME = as.factor(fish_filt$SPECIES_NAME)
+  
+  ssmatrix_ab = t(fossil::create.matrix(fish_filt, 
+                            tax.name = "SPECIES_NAME", 
+                            locality = "SurveyID",
+                            abund = T,
+                            abund.col = "Num"))
+  return(ssmatrix_ab)
+}
+
+melt_and_merge_ab = function() { # Melt matrix and merge with PC
+  
+  melted = ssmatrix_ab |>
+    reshape2::melt() |>
+    rename(SurveyID = "Var1", Species = "Var2", Abundance = "value") |>
+    left_join(all_PC, by = "SurveyID") |>
+    left_join(covariates_corrected[,-c(2:25,27)], by = "SurveyID") |>
+    left_join(sites_info[,c(1:4,8,10)], by = "SurveyID") 
+  
+  melted_ab = melted |>
+    drop_na(Dim.1) 
+  
+  return(melted_ab)
+  
+}
+
+recode_protection_ab = function() {
+  
+  # Recode protection levels as Grorud-Colvert
+  
+  melted_ab$Effectiveness = fct_collapse(melted_ab$Effectiveness, 
+                                      "Fully Protected" = c("High No take", "High No take multizoned"),
+                                      "Highly Protected" = c("Medium No take", "Medium No take multizoned"),
+                                      "Lightly Protected" = c("High Restricted take", "High Restricted take multizoned", 
+                                                              "Low No take", "Low No take multizoned", 
+                                                              "Medium Restricted take", "Medium Restricted take multizoned"),
+                                      "Minimally Protected" = c("Low Restricted take","Low Restricted take multizoned"),
+                                      "Unprotected" = c("Medium Fishing", "Low Fishing", "out"))
+  
+  melted_ab$Effectiveness = as.factor(as.character(
+    plyr::revalue(melted_ab$Effectiveness, c("Fully Protected" = "Full Protection",
+                                          "Highly Protected" = "Partial Protection",
+                                          "Lightly Protected" = "Partial Protection",
+                                          "Minimally Protected" = "Partial Protection",
+                                          "Unprotected" = "Unprotected"))))
+  
+  return(melted_ab)
+  
+}
+
+rid_rare_outside_ab = function() { # Get rid of species with 0-4 occurrences in the reference level
+  
+  # Some values were dropped, make sure we still have at least N occurrences
+  
+  melted_sum = melted_ab |>
+    filter(Abundance > 0) |>
+    group_by(Species) |>
+    summarise(Abundance = n()) |>
+    filter(Abundance >= 30)
+  
+  spec_vec = as.character(melted_sum$Species)
+  
+  melted_filt_ab = melted_ab[melted_ab$Species %in% spec_vec,]
+  
+  # Get rid of rares outside
+  
+  melted_fsum = melted_filt_ab |>
+    filter(Effectiveness == "Unprotected" & Abundance > 0) |>
+    group_by(Species) |>
+    summarise(Abundance = n()) |>
+    filter(Abundance > 4) 
+  
+  spec_vec = as.character(melted_fsum$Species)
+  
+  melted_filt_ab = melted_filt_ab[melted_filt_ab$Species %in% spec_vec,]
+  melted_filt_ab$Species = as.factor(as.character(melted_filt_ab$Species))
+  
+  save(melted_filt_ab, file = here::here("data", "data", "melted_filt_ab.RData"))
+  return(melted_filt_ab)
+}
