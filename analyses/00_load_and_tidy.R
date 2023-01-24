@@ -32,6 +32,8 @@ melted_filt_ab = rid_rare_outside_ab() #also saves "melted_filt_ab.RData"
 
 #### Plot crastination ####
 
+# To delete later
+
 ### Plots richness ###
 
 melted_filt_traits$Trophic.group2 = as.factor(melted_filt_traits$Trophic.group2)
