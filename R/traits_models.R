@@ -57,9 +57,9 @@ join_abun_traits = function(){
 traits$Species = traits$CURRENT_TAXONOMIC_NAME
 
 abun_traits = df_abun %>% 
-  filter(estimate_outside > 0.01) %>% 
-  filter(estimate_full > 0.01) %>% 
-  filter(estimate_part > 0.01) %>% 
+  filter(estimate_outside > 0.01) %>%
+  filter(estimate_full > 0.01) %>%
+  filter(estimate_part > 0.01) %>%
   left_join(traits, by = "Species") 
 
 save(abun_traits, file = here::here("outputs", "abun_traits.RData"))
@@ -97,7 +97,7 @@ trait_model_occu = function() {
 
 trait_model_abun = function() {
   
-  mod_abun_both = lme4::glmer(IRR ~ poly(Trophic.Level, 2) * (Protection) + Rarity + (1|Order),
+  mod_abun_both = lme4::glmer(IRR ~ poly(Trophic.Level, 2) * Protection + Rarity + (1|Order),
                               data = abun_traits_both,
                               family = Gamma(link = "inverse"))
   save(mod_abun_both, file = here::here("outputs", "mod_abun_both.RData"))
