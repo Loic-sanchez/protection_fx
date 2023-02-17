@@ -1,4 +1,4 @@
-plot_histograms_margins = function(){
+plot_cor_suppl1 = function(){
   
   theme_set(theme_bw())
   
@@ -17,10 +17,10 @@ plot_histograms_margins = function(){
           legend.title = element_text(face = "bold"),
           panel.grid = element_blank()) 
   
-  p1_marg = ggExtra::ggMarginal(p1, type = "histogram", 
-                                fill = "#A92E5EFF",
-                                xparams = list(bins = 50),
-                                yparams =list(bins = 50))
+  # p1_marg = ggExtra::ggMarginal(p1, type = "histogram", 
+  #                               fill = "#A92E5EFF",
+  #                               xparams = list(bins = 50),
+  #                               yparams =list(bins = 50))
   
   p2 = ggplot(abun_traits, aes(x = IRR_part, y = IRR_full, colour = RSQ)) + 
     geom_point(show.legend = T) +
@@ -38,16 +38,16 @@ plot_histograms_margins = function(){
           panel.grid = element_blank()) 
   
   
-  p2_marg = ggExtra::ggMarginal(p2, type = "histogram", 
-                                fill = "#A92E5EFF", 
-                                xparams = list(bins = 50), 
-                                yparams =list(bins = 50))
-  
-  fig1 = cowplot::plot_grid(p1_marg, p2_marg, 
+  # p2_marg = ggExtra::ggMarginal(p2, type = "histogram", 
+  #                               fill = "#A92E5EFF", 
+  #                               xparams = list(bins = 50), 
+  #                               yparams =list(bins = 50))
+  # 
+  fig1 = cowplot::plot_grid(p1, p2, 
                      ncol = 2, 
                      labels = c("(a)", "(b)"),
-                     label_x = 0.05,
-                     label_y = 0.95)
+                     label_x = 0.01,
+                     label_y = 0.975)
   
   ggsave(here::here("figures", "Figure_1.pdf"),
          width = 11.4, 
@@ -55,6 +55,42 @@ plot_histograms_margins = function(){
          unit = "cm",
          fig1)
   
+}
+
+plot_cor_suppl2 = function(){
+  
+  theme_set(theme_bw())
+  
+  abun_occu = abun_traits %>% 
+    left_join(occu_traits %>% select(Species, RR_full, RR_part), by = "Species") %>% 
+    drop_na(RR_full)
+  
+  p1 = ggplot(abun_occu, aes(x = RR_full, y = IRR_full)) + 
+    geom_point(show.legend = T) +
+    xlab("Effect size - Occurrence") +
+    ylab("Effect size - Abundance") +
+    # ylim(c(0,10)) +
+    theme(panel.grid = element_blank()) 
+  
+  p2 = ggplot(abun_occu, aes(x = RR_part, y = IRR_part)) + 
+    geom_point(show.legend = T) +
+    xlab("Effect size - Occurrence") +
+    ylab("Effect size - Abundance") +
+    # ylim(c(0,10)) +
+    theme(panel.grid = element_blank()) 
+  
+  fig1 = cowplot::plot_grid(p1, p2, 
+                            ncol = 2, 
+                            labels = c("(a)", "(b)"),
+                            label_x = 0.01,
+                            label_y = 0.975)
+  
+  ggsave(here::here("figures", "Figure_1.pdf"),
+         width = 11.4, 
+         height = 9.5,
+         unit = "cm",
+         fig1)
+
 }
 
 plot_histograms_panel = function() {
@@ -115,7 +151,7 @@ plot_histograms_panel = function() {
                        limits = c(0, 10)) +
     facet_wrap(~Protection) + 
     xlab("Effect size of protection") + 
-    ylab("") +
+    ylab("Density") +
     # xlim(c(0,10)) + 
     scale_fill_manual(values = c("#842681FF", "#AE347BFF", "#F56B5CFF", "#FEAC76FF")) +
     scale_color_manual(values = c("#842681FF", "#AE347BFF", "#F56B5CFF", "#FEAC76FF")) +
@@ -132,23 +168,6 @@ plot_histograms_panel = function() {
          fig1)
   
 }
-
-# dens1 = density(occu_abun$RR[occu_abun$Protection == "Occurrence - full protection"], n = 2^12)
-# dens2 = density(occu_abun$RR[occu_abun$Protection == "Occurrence - partial protection"], n = 2^12)
-# dens3 = density(occu_abun$RR[occu_abun$Protection == "Abundance - full protection"], n = 2^12)
-# dens4 = density(occu_abun$RR[occu_abun$Protection == "Occurrence - partial protection"], n = 2^12)
-# 
-# ggplot(data = data.frame(x = dens1$x, y = dens2$y), aes(x, y)) + 
-#   # geom_line() + 
-#   geom_segment(aes(xend = x, yend = 0, colour = x)) + 
-#   # scale_color_gradient2(low = "blue", 
-#   #                       mid = "white", 
-#   #                       high = "red", 
-#   #                       midpoint = 1)
-#   scale_color_gradientn(colours = colorRampPalette(c("blue", "white", "red"))(1000), 
-#                         breaks = c(0, 1, Inf)) +
-#   geom_vline(xintercept = 1)
-#   
 
 plot_fx = function() { 
   
